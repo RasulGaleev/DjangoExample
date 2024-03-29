@@ -3,9 +3,9 @@ from django.shortcuts import render, get_object_or_404
 from .models import Category, ProductProxy
 
 
-def products_view(requests):
+def products_view(request):
     products = ProductProxy.objects.all()
-    return render(requests, 'shop/products.html', {'products': products})
+    return render(request, 'shop/products.html', {'products': products})
 
 
 def product_detail_view(requests, slug):
