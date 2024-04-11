@@ -1,6 +1,7 @@
 import random
 import string
 
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.urls import reverse
 from django.utils.text import slugify
@@ -40,26 +41,40 @@ class Category(models.Model):
 
 
 class Product(models.Model):
-    category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name="products")
+    category = models.ForeignKey(
+        Category, on_delete=models.CASCADE, related_name='products')
     title = models.CharField("Название", max_length=250)
     brand = models.CharField("Бренд", max_length=250)
-    description = models.CharField("Описание", max_length=250)
-    slug = models.SlugField("URL", max_length=250)
-    price = models.DecimalField("Цена", max_digits=7, decimal_places=2, default=99.99)
-    image = models.ImageField("Изображение", upload_to='products/products/%Y/%m/%d')
+    description = models.TextField("Описание", blank=True)
+    slug = models.SlugField('URL', max_length=250)
+    price = models.DecimalField(
+        "Цена", max_digits=7, decimal_places=2, default=99.99)
+    image = models.ImageField(
+        "Изображение", upload_to='images/products/%Y/%m/%d', default='products/products/default.jpg')
     available = models.BooleanField("Наличие", default=True)
-    created_at = models.DateTimeField("Дата создания", auto_now_add=True)
-    updated_at = models.DateTimeField("Дата изменения", auto_now=True)
+    created_at = models.DateTimeField('Дата создания', auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField('Дата изменения', auto_now=True)
+    discount = models.IntegerField(
+        default=0, validators=[MinValueValidator(0), MaxValueValidator(100)])
 
     class Meta:
-        verbose_name = "Продукт"
-        verbose_name_plural = "Продукты"
+        verbose_name = 'Продукт'
+        verbose_name_plural = 'Продукты'
+        ordering = ['-created_at']
 
     def __str__(self):
         return self.title
 
     def get_absolute_url(self):
-        return reverse("shop:product-detail", args=[str(self.slug), ])
+        return reverse("shop:product-detail", args=[str(self.slug)])
+
+    def get_discounted_price(self):
+        discounted_price = self.price - (self.price * self.discount / 100)
+        return round(discounted_price, 2)
+
+    @property
+    def full_image_url(self):
+        return self.image.url if self.image else ''
 
 
 class ProductManager(models.Manager):

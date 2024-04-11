@@ -9,8 +9,10 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-import environ
 from pathlib import Path
+
+import environ
+from django.contrib import messages
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -28,7 +30,7 @@ SECRET_KEY = 'django-insecure-hu*$838ojkehq-k!beds=-t937wfr!jz@5=w860d1%^tdl_6nt
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 # Application definition
 
@@ -46,11 +48,19 @@ INSTALLED_APPS = [
     'django_email_verification',
     'django_google_fonts',
     'sorl.thumbnail',
+    'django_celery_beat',
+    'django_celery_results',
+    "django_htmx",
+    'rest_framework',
+    'djoser',
+    'drf_yasg',
     # apps
     'shop',
     'cart',
     'account',
     'payment',
+    'recommend',
+    'api',
 ]
 
 MIDDLEWARE = [
@@ -59,6 +69,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    "django_htmx.middleware.HtmxMiddleware",
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
@@ -131,6 +142,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
+#Static files
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'static'
 STATICFILES_DIRS = [
@@ -139,6 +151,14 @@ STATICFILES_DIRS = [
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+MESSAGE_TAGS = {
+    messages.DEBUG: 'alert-secondary',
+    messages.INFO: 'alert-info',
+    messages.SUCCESS: 'alert-success',
+    messages.WARNING: 'alert-warning',
+    messages.ERROR: 'alert-danger',
+}
 
 # Crispy Forms
 CRISPY_TEMPLATE_PACK = 'bootstrap5'
@@ -154,7 +174,7 @@ def email_verified_callback(user):
 
 
 # Global Package Settings
-EMAIL_FROM_ADDRESS = 'uchdjango@gmail.com'  # mandatory
+EMAIL_FROM_ADDRESS = 'rasulgaleev2005@gmail.com'  # mandatory
 EMAIL_PAGE_DOMAIN = 'http://127.0.0.1:8000/'  # mandatory (unless you use a custom link)
 EMAIL_MULTI_USER = False  # optional (defaults to False)
 
@@ -193,6 +213,7 @@ EMAIL_USE_TLS = True
 STRIPE_PUBLISHABLE_KEY = env('STRIPE_PUBLISHABLE_KEY')
 STRIPE_SECRET_KEY = env('STRIPE_SECRET_KEY')
 STRIPE_API_VERSION = env('STRIPE_API_VERSION')
+STRIPE_WEBHOOK_SECRET = env('STRIPE_WEBHOOK_SECRET')
 
 # Yookassa
 YOOKASSA_SECRET_KEY = env('YOOKASSA_SECRET_KEY')
@@ -200,3 +221,11 @@ YOOKASSA_SHOP_ID = env('YOOKASSA_SHOP_ID')
 
 GOOGLE_FONTS = ['Montserrat:wght@300,400', 'Roboto']
 GOOGLE_FONTS_DIR = BASE_DIR / 'static'
+
+
+# Celery
+CELERY_BROKER_URL = 'redis://localhost:6379'
+CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_EXTENDED = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers.DatabaseScheduler'

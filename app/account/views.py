@@ -47,7 +47,7 @@ def login_user(request):
             login(request, user)
             return redirect('account:dashboard')
         else:
-            messages.info("Username or password is incorrect")
+            messages.info(request, 'Username or Password is incorrect')
             return redirect('account:login')
 
     context = {'form': form}

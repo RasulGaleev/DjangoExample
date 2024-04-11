@@ -27,7 +27,9 @@ urlpatterns = [
     path('cart/', include('cart.urls', 'cart')),
     path('account/', include('account.urls', 'account')),
     path('payment/', include('payment.urls', 'payment')),
+    path('recommend', include('recommend.urls', 'recommend')),
     path('email/', include(email_urls), name='email-verification'),
+    path('api/', include('api.urls', 'api')),
     path('', views.index, name='index')
 
 ]

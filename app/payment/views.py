@@ -2,12 +2,18 @@ import uuid
 from decimal import Decimal
 
 import stripe
-from cart.cart import Cart
+import weasyprint
 from django.conf import settings
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.decorators import login_required
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.templatetags.static import static
 from django.urls import reverse
 from yookassa import Configuration, Payment
+
+from cart.cart import Cart
 
 from .forms import ShippingAddressForm
 from .models import Order, OrderItem, ShippingAddress
@@ -60,20 +66,21 @@ def complete_order(request):
         cart = Cart(request)
         total_price = cart.get_total_price()
 
+        shipping_address, _ = ShippingAddress.objects.get_or_create(
+            user=request.user,
+            defaults={
+                'name': name,
+                'email': email,
+                'street_address': street_address,
+                'apartment_address': apartment_address,
+                'country': country,
+                'zip': zip
+            }
+        )
+
         match payment_type:
             case "stripe-payment":
 
-                shipping_address, _ = ShippingAddress.objects.get_or_create(
-                    user=request.user,
-                    defaults={
-                        'name': name,
-                        'email': email,
-                        'street_address': street_address,
-                        'apartment_address': apartment_address,
-                        'country': country,
-                        'zip': zip
-                    }
-                )
                 session_data = {
                     'mode': 'payment',
                     'success_url': request.build_absolute_uri(reverse('payment:payment-success')),
@@ -100,9 +107,10 @@ def complete_order(request):
                             },
                             'quantity': item['qty'],
                         })
+                    session_data['client_reference_id'] = order.id
+                    session = stripe.checkout.Session.create(**session_data)
+                    return redirect(session.url, code=303)
 
-                        session = stripe.checkout.Session.create(**session_data)
-                        return redirect(session.url, code=303)
                 else:
                     order = Order.objects.create(
                         shipping_address=shipping_address, amount=total_price)
@@ -110,6 +118,20 @@ def complete_order(request):
                     for item in cart:
                         OrderItem.objects.create(
                             order=order, product=item['product'], price=item['price'], quantity=item['qty'])
+
+                        session_data['line_items'].append({
+                            'price_data': {
+                                'unit_amount': int(item['price'] * Decimal(100)),
+                                'currency': 'usd',
+                                'product_data': {
+                                    'name': item['product']
+                                },
+                            },
+                            'quantity': item['qty'],
+                        })
+                    session_data['client_reference_id'] = order.id
+                    session = stripe.checkout.Session.create(**session_data)
+                    return redirect(session.url, code=303)
 
             # case "yookassa-payment":
             case "yookassa-payment":
@@ -130,18 +152,6 @@ def complete_order(request):
                     "test": True,
                     "description": description,
                 }, idempotence_key)
-
-                shipping_address, _ = ShippingAddress.objects.get_or_create(
-                    user=request.user,
-                    defaults={
-                        'name': name,
-                        'email': email,
-                        'street_address': street_address,
-                        'apartment_address': apartment_address,
-                        'country': country,
-                        'zip': zip
-                    }
-                )
 
                 confirmation_url = payment.confirmation.confirmation_url
 
@@ -174,3 +184,20 @@ def payment_success(request):
 
 def payment_failed(request):
     return render(request, 'payment/payment-failed.html')
+
+
+@staff_member_required
+def admin_order_pdf(request, order_id):
+    try:
+        order = Order.objects.select_related('user', 'shipping_address').get(id=order_id)
+    except Order.DoesNotExist:
+        raise Http404('Заказ не найден')
+    html = render_to_string('payment/order/pdf/pdf_invoice.html',
+                            {'order': order})
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'filename=order_{order.id}.pdf'
+    css_path = static('payment/css/pdf.css').lstrip('/')
+    # css_path = 'static/payment/css/pdf.css'
+    stylesheets = [weasyprint.CSS(css_path)]
+    weasyprint.HTML(string=html).write_pdf(response, stylesheets=stylesheets)
+    return response
